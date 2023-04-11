@@ -36,7 +36,7 @@ namespace BlueQuest.Controllers
             return Ok(newQuest);
         }
 
-        ///////sterge - l la final //////////////////////////////////////////////////////
+        ///doar pentru demontrarea functionalitatii
         [HttpPost("add-points-to-user")]
         public async Task<ActionResult<QuestDto>> AddPointsToUser(int userId, Category category, int noOfPoints)
         {
@@ -66,13 +66,6 @@ namespace BlueQuest.Controllers
         public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsByCategory(Category category)
         {
             return Ok(await _businessLayer.GetQuestByCategory(category));
-        }
-
-        [HttpGet]
-        [Route("test-rating")] 
-        public async Task<ActionResult<List<QuestBasicDetailsDto>>> getttTestrating()
-        {
-            return Ok(await _businessLayer.getttTestrating());
         }
 
         [HttpGet]

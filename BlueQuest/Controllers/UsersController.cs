@@ -19,6 +19,18 @@ namespace BlueQuest.Controllers
             this._toDtos = toDtos;
         }
 
+        [HttpGet]
+        [Route ("{id}")]
+        public async Task<IActionResult> GetAllUsers([FromRoute] int id)
+        {
+            var user = await _bussinesLayer.GetUser(id);
+            if (user==null)
+            {
+                return NotFound("User Not Found.");
+            }
+            return Ok(user);
+        }
+
         //[HttpGet, Authorize(Roles ="Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()

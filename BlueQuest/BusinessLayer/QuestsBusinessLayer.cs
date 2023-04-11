@@ -50,7 +50,7 @@ namespace BlueQuest.BusinessLayer
                 }
             }
 
-            await DowngradeRankIfNotEnoughPoints(user);
+            await UpdateRank(user);
 
             var newQuest = new Quest
             {
@@ -78,39 +78,9 @@ namespace BlueQuest.BusinessLayer
 
             return questDto;
         }
-        /// <summary>
-        /// Checks if the user has enough points to keep his rank.
-        /// If not, it will de downgraded to the correct rank.
-        /// </summary>
-        /// <param name="user">User to check.</param>
-        /// <returns></returns>
-        public async Task<bool?> DowngradeRankIfNotEnoughPoints(User user)
-        {
-            var points = user.Points;
-            int totalPoints = 0;
 
-            foreach (var categ in points)
-            {
-                totalPoints += categ.Points;
-            }
-
-            if (totalPoints < 1000 && user.Rank > Rank.Light_Blue)
-            {
-                user.Rank = Rank.Light_Blue;
-            }
-            else if (totalPoints < 10000 && user.Rank > Rank.Blue)
-            {
-                user.Rank = Rank.Blue;
-            }
-            else if (totalPoints < 25000 && user.Rank > Rank.Heaven_Blue)
-            {
-                user.Rank = Rank.Heaven_Blue;
-            }
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        //la final, sterge metoda asta
+        ///doar pentru demonstrarea functionalitatii
+        
         /// <summary>
         /// Adds point in a category for a user.
         /// </summary>
@@ -137,7 +107,7 @@ namespace BlueQuest.BusinessLayer
                 }
             }
 
-            await UpgradeRankIfEnoughPoints(user);
+            await UpdateRank(user);
             await AwardBadgeOrRemoveBadge(user, category);
 
             await _context.SaveChangesAsync();
@@ -284,7 +254,7 @@ namespace BlueQuest.BusinessLayer
             }
 
             questToSolve.SuccessfulAttempts += 1;
-            questToSolve.RateOfSuccess = questToSolve.SuccessfulAttempts / questToSolve.TotalAttempts * 100;
+            questToSolve.RateOfSuccess = (decimal)questToSolve.SuccessfulAttempts / (decimal)questToSolve.TotalAttempts * 100;
             if (!questToSolve.UsersWhoSolvedQuest.Contains(user))
             {
                 questToSolve.UsersWhoSolvedQuest.Add(user);
@@ -294,7 +264,7 @@ namespace BlueQuest.BusinessLayer
 
             await AwardPointsToUserAccordintToQuestDifficulty(user, questToSolve.Difficulty, questToSolve.Category);
 
-            await UpgradeRankIfEnoughPoints(user);
+            await UpdateRank(user);
 
             await AwardBadgeOrRemoveBadge(user, questToSolve.Category);
 
@@ -304,12 +274,11 @@ namespace BlueQuest.BusinessLayer
         }
 
         /// <summary>
-        /// Checks if user has enough points for a Rank Upgrade.
-        /// If he does, it's rank will be upgraded.
+        /// Checks users points for a Rank Update.
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        public async Task<bool?> UpgradeRankIfEnoughPoints(User user)
+        public async Task<bool?> UpdateRank(User user)
         {
             var points = user.Points;
             int totalPoints = 0;
@@ -319,17 +288,21 @@ namespace BlueQuest.BusinessLayer
                 totalPoints += category.Points;
             }
 
-            if (totalPoints >= 25000 && user.Rank < Rank.Heaven_Blue)
+            if (totalPoints >= 25000 )
             {
                 user.Rank = Rank.Allmighty_Blue;
             }
-            else if (totalPoints >= 10000 && user.Rank < Rank.Blue)
+            else if (totalPoints >= 10000 && totalPoints < 25000)
             {
                 user.Rank = Rank.Heaven_Blue;
             }
-            else if (totalPoints >= 1000 && user.Rank == Rank.Light_Blue)
+            else if (totalPoints >= 1000 && totalPoints < 10000)
             {
                 user.Rank = Rank.Blue;
+            }
+            else if (totalPoints < 1000 )
+            {
+                user.Rank = Rank.Light_Blue;
             }
 
 

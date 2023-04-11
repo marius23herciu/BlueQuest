@@ -17,6 +17,17 @@ namespace BlueQuest.BusinessLayer
             this._context = context;
             this._toDtos = toDtos;
         }
+        public async Task<UserDto> GetUser(int id)
+        {
+            var user = await _context.Users.Include(p => p.Points).Include(b => b.Badges).Where(u=>u.Id==id).FirstOrDefaultAsync();
+            if (user==null)
+            {
+                return null;
+            }
+            var userDto = _toDtos.UserToDto(user).Result;
+            
+            return userDto;
+        }
         /// <summary>
         /// Returns a list of all users in alphabetical order.
         /// </summary>

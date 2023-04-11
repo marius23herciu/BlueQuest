@@ -174,21 +174,6 @@ namespace BlueQuest.Controllers
             return jwt;
         }
 
-        [HttpDelete("deleteUserAccount")]
-        public async Task<IActionResult> DeleteMyAccount([FromBody] string userName)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == userName);
-
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            _context.Remove(user);
-            await _context.SaveChangesAsync();
-
-            return Ok();
-        }
 
         [HttpPost("refresh-token")]
         public async Task<ActionResult<string>> RefreshToken()
