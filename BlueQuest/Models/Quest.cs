@@ -30,7 +30,7 @@
 
     public enum Category
     {
-        Movie, Music, News, Celebrity, Games, GeneralKnowledge, Sports, Geography,
+        Movies, Music, News, Celebrity, Games, GeneralKnowledge, Sports, Geography,
         History, Literature, Science, Technology, Languages
     }
     public enum Difficulty

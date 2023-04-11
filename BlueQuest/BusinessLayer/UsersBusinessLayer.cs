@@ -229,7 +229,7 @@ namespace BlueQuest.BusinessLayer
         public async Task<bool> DeleteUser(int id)
         {
 
-            var user = await _context.Users.FirstOrDefaultAsync(e => e.Id == id);
+            var user = await _context.Users.Include(b=>b.Badges).Include(p=>p.Points).FirstOrDefaultAsync(e => e.Id == id);
 
             if (user == null)
             {
