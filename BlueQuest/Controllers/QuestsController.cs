@@ -20,15 +20,15 @@ namespace BlueQuest.Controllers
             this._toDtos = toDtos;
         }
 
-        [HttpPost("quest")]
-        public async Task<ActionResult<QuestDto>> CreateQuest(int userId, QuestToCreateDto quest, Category category)
+        [HttpPost("quest-{userId}")]
+        public async Task<ActionResult<QuestDto>> CreateQuest([FromRoute] int userId, [FromBody] QuestToCreateDto quest)
         {
             if (quest is null)
             {
                 return BadRequest("Complete all the required fields to create a quest.");
             }
 
-            var newQuest = await _businessLayer.CreateQuest(userId, quest, category);
+            var newQuest = await _businessLayer.CreateQuest(userId, quest);
             if (newQuest == null)
             {
                 return BadRequest("User has to be at leat Rank Blue to create quests and has to have at least 100 point in the quest category.");
@@ -36,9 +36,8 @@ namespace BlueQuest.Controllers
             return Ok(newQuest);
         }
 
-        ///doar pentru demontrarea functionalitatii
-        [HttpPost("add-points-to-user")]
-        public async Task<ActionResult<QuestDto>> AddPointsToUser(int userId, Category category, int noOfPoints)
+        [HttpPost("add-{noOfPoints}/for-{category}")]
+        public async Task<ActionResult<QuestDto>> AddPointsToUser([FromBody] int userId, [FromRoute] Category category, [FromRoute] int noOfPoints)
         {
             var pointsAdded = await _businessLayer.AddPointsToUser(userId, category, noOfPoints);
             if (pointsAdded == null)
@@ -47,67 +46,119 @@ namespace BlueQuest.Controllers
             }
             return Ok(pointsAdded);
         }
-
-        [HttpGet]
-        [Route("{id}")]
-        public async Task<ActionResult<QuestDto>> GetQuest([FromRoute] int id)
+        [HttpPost("bonus-{points}")]
+        public async Task<ActionResult<bool>> AddPointsToUserForEachCategory([FromBody]int userId, [FromRoute] int points)
         {
-            var quest = await _businessLayer.GetQuest(id);
+            var pointsAdded = await _businessLayer.AddPointsToUserForEachCategory(userId, points);
+            if (pointsAdded == null)
+            {
+                return BadRequest("User not found.");
+            }
+            return Ok(pointsAdded);
+        }
+        
+        [HttpGet]
+        [Route("{questId}/{userId}")]
+        public async Task<ActionResult<QuestDto>> GetQuest([FromRoute] int questId, [FromRoute] int userId)
+        {
+            var quest = await _businessLayer.GetQuest(questId, userId);
             if (quest == null)
             {
                 return NotFound("QuestNotFound");
             }
             return Ok(quest);
         }
-
-
         [HttpGet]
-        [Route("quests-by-category")]
-        public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsByCategory(Category category)
+        [Route("categories")]
+        public async Task<IActionResult> GetAllCategories()
         {
-            return Ok(await _businessLayer.GetQuestByCategory(category));
+            return Ok(await _businessLayer.GetAllCategories());
+        }
+        [HttpGet]
+        [Route("{number}-random-quests/for-{userId}")]
+        public async Task<ActionResult<List<int>>> GetRandomQuests([FromRoute]int number, [FromRoute] int userId)
+        {
+            return Ok(await _businessLayer.GetRandomQuests(number, userId));
         }
 
         [HttpGet]
-        [Route("quests-by-difficulty")]
-        public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestByDifficulty(Difficulty difficulty)
+        [Route("random-{number}/{category}/{userId}")]
+        public async Task<ActionResult<List<int>>> GetRandomQuestsByCategory([FromRoute] int number, [FromRoute] string category, [FromRoute] int userId)
+        {
+            return Ok(await _businessLayer.GetRandomQuestsByCategory(category, number, userId));
+        }
+        [HttpGet]
+        [Route("{number}-random/{difficulty}/{userId}")]
+        public async Task<ActionResult<List<int>>> GetRandomQuestsByDifficulty([FromRoute] int number, [FromRoute] string difficulty, [FromRoute] int userId)
+        {
+            return Ok(await _businessLayer.GetRandomQuestsByDifficulty(difficulty, number, userId));
+        }
+
+        [HttpGet]
+        [Route("difficulty")]
+        public async Task<IActionResult> GetDifficultyLevels()
+        {
+            return Ok(await _businessLayer.GetDifficultyLevels());
+        }
+
+        [HttpGet]
+        [Route("quests-by-{category}")]
+        public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsByCategory([FromRoute]Category category)
+        {
+            return Ok(await _businessLayer.GetQuestByCategory(category));
+        }
+        [HttpGet]
+        [Route("{userId}")]
+        public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsByCreator([FromRoute] int userId)
+        {
+            return Ok(await _businessLayer.GetQuestByCreator(userId));
+        }
+
+        [HttpGet]
+        [Route("{difficulty}/quests")]
+        public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestByDifficulty([FromRoute] Difficulty difficulty)
         {
             return Ok(await _businessLayer.GetQuestByDifficulty(difficulty));
         }
 
         [HttpGet]
-        [Route("quests-by-category-and-difficulty")]
+        [Route("{category}-and-{difficulty}")]
         public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestByCategoryAndDifficulty(Category category, Difficulty difficulty)
         {
             return Ok(await _businessLayer.GetQuestByCategoryAndDifficulty(category, difficulty));
         }
 
         [HttpGet]
-        [Route("quests-by-popularity")]
+        [Route("popularity")]
         public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsByPopularity()
         {
             return Ok(await _businessLayer.GetQuestsByPopularity());
         }
 
         [HttpGet]
-        [Route("quests-by-successful-rate")]
+        [Route("quests-by/successful-rate")]
         public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestsBySuccessfulRate()
         {
             return Ok(await _businessLayer.GetQuestsBySuccessfulRate());
         }
 
         [HttpGet]
-        [Route("quests-by-users-rating")]
+        [Route("quests-by/users-rating")]
         public async Task<ActionResult<List<QuestBasicDetailsDto>>> GetQuestByUsersRating()
         {
             return Ok(await _businessLayer.GetQuestByUsersRating());
         }
-
-        [HttpPut]
-        [Route("resolve-quest-for-user")]
-        public async Task<ActionResult<bool>> ResolveQuest(int questId, int userId, string answer)
+        [HttpGet]
+        [Route ("get-categ-to-create-for-{userId}")]
+        public async Task<ActionResult<List<string>>> GetAvailableCategToCreate(int userId)
         {
-            var questSolved = await _businessLayer.ResolveQuest(questId, userId, answer);
+            return Ok(await _businessLayer.GetAvailableCategToCreate(userId));
+        }
+        [HttpPut]
+        [Route("solve-{questId}")]
+        public async Task<ActionResult<bool>> ResolveQuest([FromRoute] int questId, SolveQuestDto quest)
+        {
+            var questSolved = await _businessLayer.ResolveQuest(questId, quest.UserId, quest.Answer);
             if (questSolved == null)
             {
                 return BadRequest("Quest date is expired or the user is not allowed to solve it.");
@@ -118,9 +169,9 @@ namespace BlueQuest.Controllers
 
         [HttpPut]
         [Route("rate-quest")]
-        public async Task<ActionResult<bool>> RateQuest(int questId, int userId, int rating)
+        public async Task<ActionResult<bool>> RateQuest(RateQuestDto rateQuestDto)
         {
-            var questRated = await _businessLayer.RateQuest(questId, userId, rating);
+            var questRated = await _businessLayer.RateQuest(rateQuestDto.QuestId, rateQuestDto.UserId, rateQuestDto.Rating);
 
             if (questRated == null)
             {

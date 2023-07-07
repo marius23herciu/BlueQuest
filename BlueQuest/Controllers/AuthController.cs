@@ -30,6 +30,14 @@ namespace BlueQuest.Controllers
             this._context = employeesDbContext;
         }
 
+        [HttpGet, Authorize]
+        [Route("get-name")]
+        public ActionResult<string> GetMe()
+        {
+            var userName = _userService.GetMyName();
+            return Ok(userName);
+        }
+
         [HttpPost("register")]
         public async Task<ActionResult<User>> Register(UserRegisterDto request)
         {

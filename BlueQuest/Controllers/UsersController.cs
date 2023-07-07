@@ -20,10 +20,10 @@ namespace BlueQuest.Controllers
         }
 
         [HttpGet]
-        [Route ("{id}")]
-        public async Task<IActionResult> GetAllUsers([FromRoute] int id)
+        [Route ("{userName}")]
+        public async Task<IActionResult> GetUser([FromRoute] string userName)
         {
-            var user = await _bussinesLayer.GetUser(id);
+            var user = await _bussinesLayer.GetUser(userName);
             if (user==null)
             {
                 return NotFound("User Not Found.");
@@ -36,6 +36,20 @@ namespace BlueQuest.Controllers
         public async Task<IActionResult> GetAllUsers()
         {
             return Ok(await _bussinesLayer.GetUsersAlphabetically());
+        }
+
+        [HttpGet]
+        [Route("departments")]
+        public async Task<IActionResult> GetAllDepartments()
+        {
+            return Ok(await _bussinesLayer.GetAllDepartments());
+        }
+
+        [HttpGet]
+        [Route("categories")]
+        public async Task<IActionResult> GetAllCategories()
+        {
+            return Ok(await _bussinesLayer.GetAllCategories());
         }
 
         [HttpGet]
@@ -54,8 +68,8 @@ namespace BlueQuest.Controllers
         }
 
         [HttpGet]
-        [Route("users-ranking-by-category")]
-        public async Task<IActionResult> GetUsersRankingByCategory(Category category)
+        [Route("ranking-{category}")]
+        public async Task<IActionResult> GetUsersRankingByCategory([FromRoute]Category category)
         {
             return Ok(await _bussinesLayer.GetUsersRankingByCategory(category));
         }
@@ -74,13 +88,13 @@ namespace BlueQuest.Controllers
         }
 
         [HttpGet]
-        [Route("users-ranking-by-department-and-category")]
-        public async Task<IActionResult> GetUsersRankingByDepartmentAndCategory(string department, Category category)
+        [Route("ranks-{dep}-and-{categ}")]
+        public async Task<IActionResult> GetUsersRankingByDepartmentAndCategory([FromRoute] string dep, [FromRoute] Category categ)
         {
-            var usersRankedByDepartment = await _bussinesLayer.GetUsersRankingByDepartmentAndCategory(department, category);
+            var usersRankedByDepartment = await _bussinesLayer.GetUsersRankingByDepartmentAndCategory(dep, categ);
             if (usersRankedByDepartment == null)
             {
-                return NotFound($"Department {department} doesn't exist.");
+                return NotFound($"Department {dep} doesn't exist.");
             }
             return Ok(usersRankedByDepartment);
         }

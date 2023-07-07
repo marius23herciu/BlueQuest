@@ -4,6 +4,7 @@ namespace BlueQuest.DTOs
 {
     public class QuestToCreateDto
     {
+        public Category Category { get; set; }
         public Difficulty Difficulty { get; set; }
         public string Title { get; set; }
         public string Question { get; set; }

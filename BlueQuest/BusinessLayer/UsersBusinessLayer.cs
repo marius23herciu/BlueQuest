@@ -3,7 +3,11 @@ using BlueQuest.Data;
 using BlueQuest.DTOs;
 using BlueQuest.Models;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Net;
+using System.Reflection.Metadata;
+using System.Text;
 
 namespace BlueQuest.BusinessLayer
 {
@@ -17,9 +21,9 @@ namespace BlueQuest.BusinessLayer
             this._context = context;
             this._toDtos = toDtos;
         }
-        public async Task<UserDto> GetUser(int id)
+        public async Task<UserDto> GetUser(string username)
         {
-            var user = await _context.Users.Include(p => p.Points).Include(b => b.Badges).Where(u=>u.Id==id).FirstOrDefaultAsync();
+            var user = await _context.Users.Include(p => p.Points).Include(b => b.Badges).Where(u=>u.Username==username).FirstOrDefaultAsync();
             if (user==null)
             {
                 return null;
@@ -44,6 +48,23 @@ namespace BlueQuest.BusinessLayer
             }
 
             return usersDto;
+        }
+        public async Task<List<string>> GetAllDepartments()
+        {
+            List<string> allDepartments = await _context.Departments.Select(n => n.Name).ToListAsync();
+            allDepartments.Add("All departments");
+            return allDepartments;
+        }
+        public async Task<List<string>> GetAllCategories()
+        {
+            List<string> ranksList = new List<string>();
+
+            for (int i = 0; i < Enum.GetNames(typeof(Category)).Length; i++)
+            {
+                ranksList.Add(Enum.GetName(typeof(Category), i).ToString());
+            }
+            ranksList.Add("All categories");
+            return ranksList;
         }
         /// <summary>
         /// Returns a list of all users in descdending order according to their rate of activity.

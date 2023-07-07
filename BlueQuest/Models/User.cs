@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Reflection.Metadata;
 
 namespace BlueQuest.Models
 {
@@ -9,7 +10,7 @@ namespace BlueQuest.Models
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public Rank Rank { get; set; } = Rank.Light_Blue;
+        public Rank Rank { get; set; } = Rank.Beginner;
         public List<PointsByCategory> Points { get; set; } = new List<PointsByCategory>();
         public List<Badge> Badges { get; set; } = new List<Badge>();
         public byte[] PasswordHash { get; set; }
@@ -18,10 +19,11 @@ namespace BlueQuest.Models
         public DateTime TokenCreated { get; set; }
         public DateTime TokenExpires { get; set; }
         public int TotalQuestsAttempts { get; set; } = 0;
+      //  public List<Quest> SolvedQuests { get; set; } = new List<Quest>();
     }
 
     public enum Rank
     {
-        Light_Blue, Blue, Heaven_Blue, Allmighty_Blue
+        Beginner, Intermediate, Advanced, Expert
     }
 }

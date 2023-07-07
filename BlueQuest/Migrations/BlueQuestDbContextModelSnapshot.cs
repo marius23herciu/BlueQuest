@@ -209,9 +209,6 @@ namespace BlueQuest.Migrations
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
 
-                    b.Property<int?>("QuestId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Rank")
                         .HasColumnType("int");
 
@@ -236,9 +233,33 @@ namespace BlueQuest.Migrations
 
                     b.HasIndex("DepartmentId");
 
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("BlueQuest.Models.UserId", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("QuestId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuestId1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("User")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
                     b.HasIndex("QuestId");
 
-                    b.ToTable("Users");
+                    b.HasIndex("QuestId1");
+
+                    b.ToTable("UserId");
                 });
 
             modelBuilder.Entity("BlueQuest.Models.Badge", b =>
@@ -271,10 +292,17 @@ namespace BlueQuest.Migrations
                     b.HasOne("BlueQuest.Models.Department", null)
                         .WithMany("Users")
                         .HasForeignKey("DepartmentId");
+                });
+
+            modelBuilder.Entity("BlueQuest.Models.UserId", b =>
+                {
+                    b.HasOne("BlueQuest.Models.Quest", null)
+                        .WithMany("UsersWhoRatedQuest")
+                        .HasForeignKey("QuestId");
 
                     b.HasOne("BlueQuest.Models.Quest", null)
                         .WithMany("UsersWhoSolvedQuest")
-                        .HasForeignKey("QuestId");
+                        .HasForeignKey("QuestId1");
                 });
 
             modelBuilder.Entity("BlueQuest.Models.Department", b =>
@@ -284,6 +312,8 @@ namespace BlueQuest.Migrations
 
             modelBuilder.Entity("BlueQuest.Models.Quest", b =>
                 {
+                    b.Navigation("UsersWhoRatedQuest");
+
                     b.Navigation("UsersWhoSolvedQuest");
                 });
 

@@ -36,8 +36,10 @@ namespace BlueQuest.BusinessLayer
 
             var userDto = new UserDto
             {
+                Id = user.Id,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
+                Email = user.Email,
                 Department = GetDepartmentsName(user.Id).Result,
                 Rank = user.Rank,
                 Points = GetTotalPointsForUser(user).Result,
@@ -49,13 +51,24 @@ namespace BlueQuest.BusinessLayer
 
         public async Task<UserDto> UserByCategoryToDto(User user, Category category)
         {
+            var badges = user.Badges.ToList();
+            List<string> stringOfBadges = new List<string>();
+
+            foreach (var badge in badges)
+            {
+                stringOfBadges.Add($"{badge.Category} {badge.BadgeName}");
+            }
+
             var userDto = new UserDto
             {
+                Id = user.Id,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
+                Email = user.Email,
                 Department = GetDepartmentsName(user.Id).Result,
                 Rank = user.Rank,
                 Points = GetTotalPointsForUserByCategory(user, category).Result,
+                Badges = stringOfBadges,
                 TotalQuestsAttempts = user.TotalQuestsAttempts,
             };
             return userDto;
@@ -77,8 +90,39 @@ namespace BlueQuest.BusinessLayer
             return null;
         }
 
-        public async Task<QuestDto> QuestToDto(Quest newQuest)
+        public async Task<QuestDto> QuestToDto(Quest newQuest, int userId)
         {
+            var createdByUser = false;
+            var allowedToSolve = true;
+            if (newQuest.CreatedBy.Id==userId) 
+            { 
+                createdByUser= true;
+            }
+            var user = await _context.Users.FirstOrDefaultAsync(i => i.Id == userId);
+            var allreadySolvedByUser = false;
+            foreach (var id in newQuest.UsersWhoSolvedQuest)
+            {
+                if (id.User==userId)
+                {
+                    allreadySolvedByUser = true;
+                    break;
+                }
+            }
+            if (createdByUser==true || allreadySolvedByUser)
+            {
+                allowedToSolve= false;
+            }
+
+            var allreadyRatedByUser = false;
+            foreach (var id in newQuest.UsersWhoRatedQuest)
+            {
+                if (id.User == userId)
+                {
+                    allreadyRatedByUser = true;
+                    break;
+                }
+            }
+
             var questDto = new QuestDto
             {
                 Category = newQuest.Category,
@@ -96,6 +140,9 @@ namespace BlueQuest.BusinessLayer
                 TotalAttempts = newQuest.TotalAttempts,
                 RateOfSuccess = newQuest.RateOfSuccess,
                 UsersRating = newQuest.UsersRating,
+                CreatedByActiveUser= createdByUser,
+                AllowedToSolve = allowedToSolve,
+                AllreadyRated = allreadyRatedByUser
             };
 
             return questDto;
@@ -105,6 +152,7 @@ namespace BlueQuest.BusinessLayer
         {
             var questDto = new QuestBasicDetailsDto
             {
+                Id = quest.Id,
                 Category = quest.Category,
                 Difficulty = quest.Difficulty,
                 Title = quest.Title,

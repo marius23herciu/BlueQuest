@@ -23,7 +23,7 @@ namespace BlueQuest.BusinessLayer
         /// <param name="quest">DTO of the quest's details.</param>
         /// <param name="category">Category for the quest.</param>
         /// <returns></returns>
-        public async Task<QuestDto> CreateQuest(int userId, QuestToCreateDto quest, Category category)
+        public async Task<QuestDto> CreateQuest(int userId, QuestToCreateDto quest)
         {
             var user = await _context.Users.Include(p => p.Points).FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -31,20 +31,20 @@ namespace BlueQuest.BusinessLayer
             var questCategoryPoints = 0;
             foreach (var categ in usersPoints)
             {
-                if (categ.Category == category)
+                if (categ.Category == quest.Category)
                 {
                     questCategoryPoints = categ.Points;
                 }
             }
 
-            if (user.Rank < Rank.Blue && questCategoryPoints < 100)
+            if (user.Rank < Rank.Intermediate && questCategoryPoints < 100)
             {
                 return null;
             }
 
             foreach (var categ in usersPoints)
             {
-                if (categ.Category == category)
+                if (categ.Category == quest.Category)
                 {
                     categ.Points -= 100;
                 }
@@ -54,12 +54,13 @@ namespace BlueQuest.BusinessLayer
 
             var newQuest = new Quest
             {
-                Category = category,
+                Category = quest.Category,
                 Difficulty = quest.Difficulty,
                 Title = quest.Title,
                 Question = quest.Question,
                 Image = quest.Image,
                 Video = quest.Video,
+                Audio = quest.Audio,
                 Answer = quest.Answer,
                 Option1 = quest.Option1,
                 Option2 = quest.Option2,
@@ -71,7 +72,7 @@ namespace BlueQuest.BusinessLayer
 
             newQuest.EndAvailabilityDate = newQuest.PostingTime.AddDays(newQuest.AvailabilityInDays);
 
-            var questDto = _toDtos.QuestToDto(newQuest).Result;
+            var questDto = _toDtos.QuestToDto(newQuest, userId).Result;
 
             await _context.AddAsync(newQuest);
             await _context.SaveChangesAsync();
@@ -90,7 +91,7 @@ namespace BlueQuest.BusinessLayer
         /// <returns></returns>
         public async Task<bool?> AddPointsToUser(int userId, Category category, int noOfPoints)
         {
-            var user = await _context.Users.Include(p => p.Points).FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _context.Users.Include(p => p.Points).Include(b=>b.Badges).FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null)
             {
                 return null;
@@ -103,12 +104,42 @@ namespace BlueQuest.BusinessLayer
             {
                 if (categ.Category == category)
                 {
-                    categ.Points = noOfPoints;
+                    categ.Points += noOfPoints;
                 }
             }
 
             await UpdateRank(user);
             await AwardBadgeOrRemoveBadge(user, category);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<bool?> AddPointsToUserForEachCategory(int userId, int points)
+        {
+            var user = await _context.Users.Include(p => p.Points).Include(b => b.Badges).FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+            {
+                return null;
+            }
+
+            foreach (var categ in (Category[])Enum.GetValues(typeof(Category)))
+            {
+                await CreateCategoryForUserIfItDoesntExist(user, categ);
+            }
+
+            var usersPoints = user.Points;
+            foreach (var categ in usersPoints)
+            {
+                categ.Points += points;
+            }
+
+            await UpdateRank(user);
+
+            var categoryEnumerable = Enum.GetValues(typeof(Category)).Cast<Category>();
+            foreach (var cat in categoryEnumerable)
+            {
+                await AwardBadgeOrRemoveBadge(user, cat);
+            }
 
             await _context.SaveChangesAsync();
             return true;
@@ -140,7 +171,6 @@ namespace BlueQuest.BusinessLayer
                     Points = 0
                 });
             }
-
             await _context.SaveChangesAsync();
             return true;
         }
@@ -149,16 +179,17 @@ namespace BlueQuest.BusinessLayer
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async Task<QuestDto> GetQuest(int id)
+        public async Task<QuestDto> GetQuest(int questId, int userId)
         {
-            var questToSolve = await _context.Quests.Where(q => q.Id == id).FirstOrDefaultAsync();
+            var questToSolve = await _context.Quests.Include(u=>u.CreatedBy).Include(u=>u.UsersWhoRatedQuest).
+                Include(u=>u.UsersWhoSolvedQuest).Where(q => q.Id == questId).FirstOrDefaultAsync();
 
             if (questToSolve == null)
             {
                 return null;
             }
 
-            var questDto = _toDtos.QuestToDto(questToSolve).Result;
+            var questDto = _toDtos.QuestToDto(questToSolve, userId).Result;
 
             return questDto;
         }
@@ -221,11 +252,20 @@ namespace BlueQuest.BusinessLayer
         public async Task<bool?> ResolveQuest(int questId, int userId, string answer)
         {
             var user = await _context.Users.Include(p => p.Points).FirstOrDefaultAsync(u => u.Id == userId);
-            var questToSolve = await _context.Quests.Include(u => u.UsersWhoSolvedQuest).Include(c => c.CreatedBy)
+            var questToSolve = await _context.Quests.Include(c => c.CreatedBy).Include(u=>u.UsersWhoSolvedQuest)
                                      .Where(q => q.Id == questId).FirstOrDefaultAsync();
 
+            var checkIfAllreadySolved = questToSolve.UsersWhoSolvedQuest;
+            foreach (var id in checkIfAllreadySolved)
+            {
+                if (id.User==userId)
+                {
+                    return null;
+                }
+            }
+
             if (questToSolve == null || user == null || questToSolve.EndAvailabilityDate < DateTime.Now
-                || questToSolve.CreatedBy.Id == userId || questToSolve.UsersWhoSolvedQuest.Contains(user))
+                || questToSolve.CreatedBy.Id == userId)
             {
                 return null;
             }
@@ -255,10 +295,11 @@ namespace BlueQuest.BusinessLayer
 
             questToSolve.SuccessfulAttempts += 1;
             questToSolve.RateOfSuccess = (decimal)questToSolve.SuccessfulAttempts / (decimal)questToSolve.TotalAttempts * 100;
-            if (!questToSolve.UsersWhoSolvedQuest.Contains(user))
+
+            questToSolve.UsersWhoSolvedQuest.Add(new UserId
             {
-                questToSolve.UsersWhoSolvedQuest.Add(user);
-            }
+                User = userId
+            });
 
             await CreateCategoryForUserIfItDoesntExist(user, questToSolve.Category);
 
@@ -270,8 +311,43 @@ namespace BlueQuest.BusinessLayer
 
             await _context.SaveChangesAsync();
 
+
             return true;
         }
+
+        public async Task<List<string>> GetAvailableCategToCreate(int userId)
+        {
+            var categs = new List<string>();
+            var user = await _context.Users.Include(p=>p.Points).Where(i=>i.Id==userId).FirstOrDefaultAsync();
+            if (user==null)
+            {
+                return categs;
+            }
+
+            var points = user.Points;
+
+            foreach (var categ in points)
+            {
+                if (categ.Points>=100)
+                {
+                    categs.Add(categ.Category.ToString());
+                }
+            }
+
+            return categs;
+            //return Enum.GetNames(typeof(Category)).ToList();
+        }
+        public async Task<List<string>> GetAllCategories()
+        {
+            return Enum.GetNames(typeof(Category)).ToList();
+        }
+
+        public async Task<List<string>> GetDifficultyLevels()
+        {
+            return Enum.GetNames(typeof(Difficulty)).ToList();
+        }
+        
+
 
         /// <summary>
         /// Checks users points for a Rank Update.
@@ -290,19 +366,19 @@ namespace BlueQuest.BusinessLayer
 
             if (totalPoints >= 25000 )
             {
-                user.Rank = Rank.Allmighty_Blue;
+                user.Rank = Rank.Expert;
             }
             else if (totalPoints >= 10000 && totalPoints < 25000)
             {
-                user.Rank = Rank.Heaven_Blue;
+                user.Rank = Rank.Advanced;
             }
             else if (totalPoints >= 1000 && totalPoints < 10000)
             {
-                user.Rank = Rank.Blue;
+                user.Rank = Rank.Intermediate;
             }
             else if (totalPoints < 1000 )
             {
-                user.Rank = Rank.Light_Blue;
+                user.Rank = Rank.Beginner;
             }
 
 
@@ -542,16 +618,25 @@ namespace BlueQuest.BusinessLayer
 
             var user = await _context.Users.Include(p => p.Points).FirstOrDefaultAsync(u => u.Id == userId);
             var questToRate = await _context.Quests.Include(u => u.UsersWhoSolvedQuest).Include(c => c.CreatedBy)
-                                     .Where(q => q.Id == questId).FirstOrDefaultAsync();
+                                     .Include(u=>u.UsersWhoRatedQuest).Where(q => q.Id == questId).FirstOrDefaultAsync();
 
             if (questToRate.CreatedBy.Id == userId)
             {
                 return false;
             }
 
+            foreach (var q in questToRate.UsersWhoRatedQuest)
+            {
+                if (q.User==userId)
+                {
+                    return false;
+                }
+            }
+
             questToRate.NoOfRatings += 1;
             questToRate.SumOfRatings += rating;
             questToRate.UsersRating = (decimal)questToRate.SumOfRatings / (decimal)questToRate.NoOfRatings;
+            questToRate.UsersWhoRatedQuest.Add(new UserId { User = userId });
 
             await _context.SaveChangesAsync();
 
@@ -566,6 +651,7 @@ namespace BlueQuest.BusinessLayer
         public async Task<bool?> DeleteQuest(int questId, int userId)
         {
             var questToDelete = await _context.Quests.Include(u => u.UsersWhoSolvedQuest).Include(c => c.CreatedBy)
+                                     .Include(c => c.UsersWhoRatedQuest)
                                      .Where(q => q.Id == questId).FirstOrDefaultAsync();
 
             if (questToDelete == null)
@@ -582,6 +668,134 @@ namespace BlueQuest.BusinessLayer
 
             return true;
         }
+        public async Task<List<int>> GetRandomQuests(int number, int userId)
+        {
+            var finalQuests = new List<int>();
+            Random r = new Random();
+            var random = new List<int>();
+            var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+            var quests = await _context.Quests.Include(u => u.CreatedBy).Include(u => u.UsersWhoSolvedQuest).Where(i => i.CreatedBy.Id != userId)
+                .ToListAsync();
+            var questsFiltered = new List<Quest>();
+            foreach (var q in quests)
+            {
+                if (q.UsersWhoSolvedQuest.Count == 0)
+                {
+                    questsFiltered.Add(q);
+                }
+                int counter = 0;
+                foreach (var u in q.UsersWhoSolvedQuest)
+                {
+                    if (u.User != userId)
+                    {
+                        counter++;
+                    }
+                    if (counter==q.UsersWhoSolvedQuest.Count)
+                    {
+                        questsFiltered.Add(q);
+                    }
+                }
+            }
+            foreach (var q in questsFiltered)
+            {
+                finalQuests.Add(q.Id);
+            }
 
+            if (quests.Count >= number)
+            {
+                random = finalQuests.OrderBy(x => r.Next()).Take(number).ToList();
+                return random;
+            }
+
+            return random;
+        }
+        public async Task<List<int>> GetRandomQuestsByCategory(string category, int noOfQuests, int userId)
+        {
+            Random r = new Random();
+            var random = new List<int>();
+            var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+            var quests = await _context.Quests.Include(u => u.CreatedBy).Include(u => u.UsersWhoSolvedQuest).Where(i => i.CreatedBy.Id != userId)
+                 .ToListAsync();
+            var questsFiltered = new List<Quest>();
+            foreach (var q in quests)
+            {
+                if (q.UsersWhoSolvedQuest.Count == 0)
+                {
+                    questsFiltered.Add(q);
+                }
+                int counter = 0;
+                foreach (var u in q.UsersWhoSolvedQuest)
+                {
+                    if (u.User != userId)
+                    {
+                        counter++;
+                    }
+                    if (counter == q.UsersWhoSolvedQuest.Count)
+                    {
+                        questsFiltered.Add(q);
+                    }
+                }
+            }
+            var questsId = questsFiltered.Where(q => Enum.GetName(q.Category) == category).Select(i => i.Id).ToList();
+
+            if (questsId.Count >= noOfQuests)
+            {
+                random = questsId.OrderBy(x => r.Next()).Take(noOfQuests).ToList();
+                return random;
+            }
+            return random;
+        }
+        public async Task<List<int>> GetRandomQuestsByDifficulty(string difficulty, int noOfQuests, int userId)
+        {
+            Random r = new Random();
+            var random = new List<int>();
+            var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+
+
+            var quests = await _context.Quests.Include(u => u.CreatedBy).Include(u => u.UsersWhoSolvedQuest).Where(i => i.CreatedBy.Id != userId)
+                .ToListAsync();
+            var questsFiltered = new List<Quest>();
+            foreach (var q  in quests)
+            {
+                if (q.UsersWhoSolvedQuest.Count == 0)
+                {
+                    questsFiltered.Add(q);
+                }
+                int counter = 0;
+                foreach (var u in q.UsersWhoSolvedQuest)
+                {
+                    if (u.User != userId)
+                    {
+                        counter++;
+                    }
+                    if (counter == q.UsersWhoSolvedQuest.Count)
+                    {
+                        questsFiltered.Add(q);
+                    }
+                }
+            }
+            var questsId = questsFiltered.Where(q => Enum.GetName(q.Difficulty) == difficulty).Select(i => i.Id).ToList();
+
+            if (questsId.Count >= noOfQuests)
+            {
+                random = questsId.OrderBy(x => r.Next()).Take(noOfQuests).ToList();
+                return random;
+            }
+            return random;
+        }
+        public async Task<List<QuestBasicDetailsDto>> GetQuestByCreator(int userId)
+        {
+            var quests = await _context.Quests.Include(u=>u.CreatedBy).Where(q => q.CreatedBy.Id == userId).ToListAsync();
+
+            List<QuestBasicDetailsDto> questsDto = new List<QuestBasicDetailsDto>();
+            foreach (var quest in quests)
+            {
+                questsDto.Add(_toDtos.QuestBasicDetailsToDto(quest).Result);
+            }
+
+            var orderdDtos = questsDto.OrderBy(d => d.Difficulty).ThenBy(t => t.Title).ToList();
+
+            return orderdDtos;
+        }
     }
 }

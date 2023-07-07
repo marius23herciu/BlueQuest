@@ -19,5 +19,8 @@ namespace BlueQuest.DTOs
         public int TotalAttempts { get; set; }
         public decimal RateOfSuccess { get; set; }
         public decimal UsersRating { get; set; }
+        public bool CreatedByActiveUser { get; set; }
+        public bool AllowedToSolve { get; set; }
+        public bool AllreadyRated { get; set; }
     }
 }

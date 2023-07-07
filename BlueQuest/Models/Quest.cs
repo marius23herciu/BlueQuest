@@ -1,11 +1,14 @@
-﻿namespace BlueQuest.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace BlueQuest.Models
 {
     public class Quest
     {
         public int Id { get; set; }
         public Category Category { get; set; }
         public Difficulty Difficulty { get; set; }
-        public List<User> UsersWhoSolvedQuest { get; set; } = new List<User>();
+        public List<UserId> UsersWhoSolvedQuest { get; set; } = new List<UserId> ();
+        public List<UserId> UsersWhoRatedQuest { get; set; } = new List<UserId>();
         public User CreatedBy { get; set; }
         public string Title { get; set; }
         public string Question { get; set; }
@@ -30,7 +33,7 @@
 
     public enum Category
     {
-        Movies, Music, News, Celebrity, Games, GeneralKnowledge, Sports, Geography,
+        Movies, Music, News, Celebrity, Games, General_Knowledge, Sports, Geography,
         History, Literature, Science, Technology, Languages
     }
     public enum Difficulty
